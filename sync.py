@@ -34,7 +34,7 @@ rmLinesList=glob.glob(remarkableBackupDirectory+remContent+"/*.lines")
 
 
 # #Later ToDo: find standalone notes files and put those somewhere seperate
-pdfNamesOnRm=[]
+
 for i in range(0,len(rmLinesList)):
     # get file reference number
     refNr=os.path.basename(rmLinesList[i][:-6])
@@ -42,7 +42,7 @@ for i in range(0,len(rmLinesList)):
     # get meta Data
     meta= json.loads(open(refNrPath+".metadata").read())
     # Make record of pdf files already on device
-    pdfNamesOnRm.append(meta["visibleName"]+".pdf")
+    # pdfNamesOnRm.append(meta["visibleName"]+".pdf")
     # Do we need to Copy this file from the rM to the computer?
     AnnotPDF= True if refNrPath+".pdf" in rmPdfList else False
 
@@ -55,6 +55,7 @@ for i in range(0,len(rmLinesList)):
             # export
             print(meta["visibleName"]+" is being exported.")
 
+
             linesOut= syncDirectory+"/"+subFolder+"/"+"lines_temp.pdf"
             # could also use empty pdf on remarkable, but computer side annotations are lost. this way if something has been annotated lots fo times it may stat to suck in quality
             # uses github code
@@ -66,6 +67,8 @@ for i in range(0,len(rmLinesList)):
             os.system(stampCmd)
             # Remove temporary files
             os.remove(linesOut)
+
+
         else:
             print(meta["visibleName"]+" does not exist in the sync directory")
             # ToDo allow y/n input whether it should be copied there anyway
@@ -74,6 +77,8 @@ for i in range(0,len(rmLinesList)):
         # needs imagemagick
         print("exporting Notebook " + meta["visibleName"])
         # print(refNrPath)
+
+
         noteOut=syncDirectory+"/Notes"+meta["visibleName"]
         svgOut="/Users/lisa/Documents/Literature/Notes/tmp/note.svg"
         # make temp directory
@@ -86,19 +91,44 @@ for i in range(0,len(rmLinesList)):
         os.system(convertSvg2PdfCmd)
         # Delete temp directory
         shutil.rmtree(syncDirectory+"/Notes/tmp/", ignore_errors=False, onerror=None)
-
-
+pdfNamesOnRm=[]
+for i in range(0,len(rmPdfList)):
+    refNrPath= rmPdfList[i][:-4]
+    # get meta Data
+    meta= json.loads(open(refNrPath+".metadata").read())
+    # Make record of pdf files already on device
+    pdfNamesOnRm.append(meta["visibleName"]+".pdf")
 
 
 ### UPLOAD ###
-# syncNames = [ os.path.basename(f) for f in syncFilesList ]
-# # this gets elements that are in list 1 but not in list 2
-# uploadList = np.setdiff1d(syncNames,pdfNamesOnRm)
+# we dont want to re-upload Notes
+syncFilesList= [ x for x in syncFilesList if "/Notes/" not in x ]
+# print("syncFilesList")
+# print(syncFilesList)
 
-# for i in range(0,len(uploadList)):
-#     filePath=syncDirectory+"/"+uploadList[i]
+syncNames = [ os.path.basename(f) for f in syncFilesList ]
+# we dont want to re-upload annotated pdfs
+syncNames= [ x for x in syncNames if "annot" not in x ]
+
+# print("syncNames")
+# print(syncNames)
+
+
+# this gets elements that are in list 1 but not in list 2
+uploadList = np.setdiff1d(syncNames,pdfNamesOnRm)
+# print("pdfNamesOnRm")
+# print(pdfNamesOnRm)
+# print("uploadList")
+# print(uploadList)
+
+for i in range(0,len(uploadList)):
+    filePath=glob.glob(syncDirectory+"/*/"+uploadList[i])[0]
 #     # ToDo
 #     #http://remarkablewiki.com/index.php?title=Methods_of_access
+    print("upload "+ uploadList[i])
+    uploadCmd="".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@",filePath,";filename=",uploadList[i],";type=application/pdf'"])
+    os.system(uploadCmd)
+
 #     #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf" 
 #     # Upload successfullchronos@localhost ~/Downloads $
 #     print("upload "+ uploadList[i])
