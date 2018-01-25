@@ -2,7 +2,6 @@ import os
 import shutil
 import glob
 import json
-import numpy as np
 # needs imagemagick, pdftk
 
 # Set Parameters for sync
@@ -11,9 +10,8 @@ remarkableBackupDirectory="/Users/lisa/Documents/remarkableBackup"
 remContent="/xochitl"
 remarkableDirectory="/home/root/.local/share/remarkable/xochitl"
 remarkableUsername="root"
-remarkableIP="10.11.99.1"
-remarkablePassword="AyzZl13kOs"
-conversionScriptPDF="/Users/lisa/Documents/rMTools/maxio/tools/rM2svg"
+remarkableIP = "10.11.99.1"
+conversionScriptPDF="/Users/lisa/Documents/rMTools/maxio/tools/rM2pdf"
 conversionScriptNotes="/Users/lisa/Documents/rMTools/orinalMaxio/maxio/tools/rM2svg"
 
 
@@ -24,7 +22,7 @@ if sync=="y":
     #Sometimes the remarkable doesnt connect properly. In that case turn off & disconnect -> turn on -> reconnect
     backupCommand="".join(["scp -r ",remarkableUsername,"@",remarkableIP,":",remarkableDirectory," ", remarkableBackupDirectory])
     os.system(backupCommand)
-    # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup") 
+    # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup")
 
 #### Get file lists
 syncFilesList=glob.glob(syncDirectory+"/*/*.pdf")
@@ -39,6 +37,7 @@ for i in range(0,len(rmLinesList)):
     # get file reference number
     refNr=os.path.basename(rmLinesList[i][:-6])
     refNrPath= rmLinesList[i][:-6]
+
     # get meta Data
     meta= json.loads(open(refNrPath+".metadata").read())
     # Make record of pdf files already on device
@@ -48,9 +47,10 @@ for i in range(0,len(rmLinesList)):
 
     if AnnotPDF:
         # deal with annotated pdfs
-        inSyncFolder= True if glob.glob(syncDirectory+"/*/"+meta["visibleName"]+".pdf")!=[] else False
+        syncFilePath= syncDirectory+"/*/"+meta["visibleName"]+".pdf" if meta["visibleName"][-4:]!=".pdf" else syncDirectory+"/*/"+meta["visibleName"]
+        inSyncFolder= True if glob.glob(syncFilePath)!=[] else False
         if inSyncFolder:
-            origPDF=glob.glob(syncDirectory+"/*/"+meta["visibleName"]+".pdf")[0]
+            origPDF=glob.glob(syncFilePath)[0]
             subFolder=os.path.basename(os.path.dirname(origPDF))
             # export
             print(meta["visibleName"]+" is being exported.")
@@ -97,7 +97,8 @@ for i in range(0,len(rmPdfList)):
     # get meta Data
     meta= json.loads(open(refNrPath+".metadata").read())
     # Make record of pdf files already on device
-    pdfNamesOnRm.append(meta["visibleName"]+".pdf")
+    rmPdfName= meta["visibleName"]+".pdf" if meta["visibleName"][-4:]!=".pdf" else meta["visibleName"]
+    pdfNamesOnRm.append(rmPdfName)
 
 
 ### UPLOAD ###
@@ -115,7 +116,7 @@ syncNames= [ x for x in syncNames if "annot" not in x ]
 
 
 # this gets elements that are in list 1 but not in list 2
-uploadList = np.setdiff1d(syncNames,pdfNamesOnRm)
+uploadList = [x for x in syncNames if x not in pdfNamesOnRm]
 # print("pdfNamesOnRm")
 # print(pdfNamesOnRm)
 # print("uploadList")
@@ -123,10 +124,11 @@ uploadList = np.setdiff1d(syncNames,pdfNamesOnRm)
 
 for i in range(0,len(uploadList)):
     filePath=glob.glob(syncDirectory+"/*/"+uploadList[i])[0]
+    fileName=uploadList[i] if uploadList[i][-4:0]!="pdf" else uploadList[:-4]
 #     # ToDo
 #     #http://remarkablewiki.com/index.php?title=Methods_of_access
-    print("upload "+ uploadList[i])
-    uploadCmd="".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@",filePath,";filename=",uploadList[i],";type=application/pdf'"])
+    print("upload "+ fileName +" from "+filePath)
+    uploadCmd="".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@",filePath,";filename=",fileName,";type=application/pdf'"])
     os.system(uploadCmd)
 
 #     #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf" 
