@@ -44,9 +44,16 @@ def main():
                         help="just print upload commands",
                         action='store_true',
                         )
+    parser.add_argument("-l",
+                        "--makeList",
+                        help="get a list of files on rM",
+                        action='store_true',
+                        )
     args = parser.parse_args()
     if args.backup:
         backupRM()
+    if args.makeList:
+        listFiles()
     if args.convert:
         convertFiles()
     if args.upload:
@@ -64,6 +71,19 @@ def backupRM():
     os.system(backupCommand)
     # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup")
 
+def listFiles():
+    rmPdfList=glob.glob(remarkableBackupDirectory+remContent+"/*.pdf")
+    rmPdfNameList=[]
+    for f in rmPdfList:
+        refNr=os.path.basename(f[:-4])
+        refNrPath= f[:-4]
+        meta= json.loads(open(refNrPath+".metadata").read())
+        rmPdfNameList.append(meta["visibleName"])
+
+    print("rmPdfNameList")
+    print(rmPdfNameList)
+    print("len(rmPdfNameList)")
+    print(len(rmPdfNameList))
 
 ### CONVERT TO PDF ###
 # TODO: underlay notebook templates?
@@ -230,7 +250,7 @@ def uploadToRM_curl(dry):
         # #http://remarkablewiki.com/index.php?title=Methods_of_access
         # #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf" 
         uploadCmd="".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@",filePath,";filename=",fileName,";type=application/pdf'"])
-        os.system(uploadCmd)
+        # os.system(uploadCmd)
         # folderpath=os.path.dirname(filePath)
         # if folderpath != syncDirectory:
         #     foldername=folderpath.split('/')[-1]
@@ -244,7 +264,6 @@ def uploadToRM_curl(dry):
         else:
             os.system(uploadCmd)
             # time.sleep(10)
-
 
 
 
