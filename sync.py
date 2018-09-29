@@ -5,6 +5,7 @@ import os
 import shutil
 import glob
 import json
+import time
 from argparse import ArgumentParser
 # needs imagemagick, pdftk
 
@@ -15,9 +16,11 @@ remContent="/xochitl"
 remarkableDirectory="/home/root/.local/share/remarkable/xochitl"
 remarkableUsername="root"
 remarkableIP = "10.11.99.1"
+# https://github.com/lschwetlick/maxio/tree/master/tools
 conversionScriptPDF="/Users/lisa/Documents/Projects/rMTools/maxio/tools/rM2pdf"
 conversionScriptNotes="/Users/lisa/Documents/Projects/rMTools/maxio/tools/rM2svg"
-
+# https://github.com/reHackable/scripts
+pushScript="/Users/lisa/Documents/Projects/rMTools/scripts/host/repush.sh"
 
 def main():
     parser = ArgumentParser()
@@ -36,13 +39,19 @@ def main():
                         help="upload new files in library to rM",
                         action='store_true',
                         )
+    parser.add_argument("-d",
+                        "--dry_upload",
+                        help="just print upload commands",
+                        action='store_true',
+                        )
     args = parser.parse_args()
     if args.backup:
         backupRM()
     if args.convert:
         convertFiles()
     if args.upload:
-        uploadToRM()
+        print("upload")
+        uploadToRM_curl(args.dry_upload)
     print("Done!")
 
 ### BACK UP ###
@@ -60,7 +69,7 @@ def backupRM():
 # TODO: underlay notebook templates?
 def convertFiles():
     #### Get file lists
-    syncFilesList=glob.glob(syncDirectory+"/*/*.pdf")
+    # syncFilesList=glob.glob(syncDirectory+"/*/*.pdf")
     rmPdfList=glob.glob(remarkableBackupDirectory+remContent+"/*.pdf")
     rmLinesList=glob.glob(remarkableBackupDirectory+remContent+"/*.lines")
     # notesList=[ os.path.basename(f) for f in rmLinesList ] # in the loop we remove all that have an associated pdf
@@ -119,6 +128,16 @@ def convertFiles():
             os.system(convertSvg2PdfCmd)
             # Delete temp directory
             shutil.rmtree(syncDirectory+"/Notes/tmp/", ignore_errors=False, onerror=None)
+
+
+### UPLOAD ###
+# TODO: Upload to folders (scripts/repush.sh)
+def uploadToRM(dry):
+    # list of files in Library
+    syncFilesList=glob.glob(syncDirectory+"/*/*.pdf")
+    # list of files on the rM (hashed)
+    rmPdfList=glob.glob(remarkableBackupDirectory+remContent+"/*.pdf")
+    # make list of actual names (not hashed)
     pdfNamesOnRm=[]
     for i in range(0,len(rmPdfList)):
         refNrPath= rmPdfList[i][:-4]
@@ -127,43 +146,106 @@ def convertFiles():
         # Make record of pdf files already on device
         rmPdfName= meta["visibleName"]+".pdf" if meta["visibleName"][-4:]!=".pdf" else meta["visibleName"]
         pdfNamesOnRm.append(rmPdfName)
-
-
-### UPLOAD ###
-# TODO: Upload to folders (scripts/repush.sh)
-def uploadToRM():
-    # we dont want to re-upload Notes
+    
+    # remove files in the Notes directory from the list (those dont need to be re-uploaded)
     syncFilesList= [ x for x in syncFilesList if "/Notes/" not in x ]
-    # print("syncFilesList")
-    # print(syncFilesList)
-
+    # find absolute path
     syncNames = [ os.path.basename(f) for f in syncFilesList ]
-    # we dont want to re-upload annotated pdfs
+    # remove annotated pdf files from the list (those dont need to be re-uploaded)
     syncNames= [ x for x in syncNames if "annot" not in x ]
 
-    # print("syncNames")
-    # print(syncNames)
-
-
-    # this gets elements that are in list 1 but not in list 2
+    # find files that are not already on the rM
+    # this gets elements that are in the sync list but not on the rM
     uploadList = [x for x in syncNames if x not in pdfNamesOnRm]
-    # print("pdfNamesOnRm")
-    # print(pdfNamesOnRm)
-    # print("uploadList")
+    # print("uploadList:")
     # print(uploadList)
 
+    uploadPathList= [glob.glob(syncDirectory+"/*/"+x)[0] for x in uploadList]
+    # print("uploadPathList:")
+    # print(uploadPathList)
+    # do in batches of the folders
+    folderList = [os.path.dirname(x).split('/')[-1] for x in uploadPathList]
+    # print(folderList)
+    batches= list(set(folderList))
+
+    # print(batches)
+
+    for folder in batches:
+        filesInFolder=[f for f in uploadPathList if folder == os.path.dirname(f).split('/')[-1]]
+        print("upload "+ " ".join(filesInFolder) +" to "+folder)
+
+        folderpath=os.path.dirname(filesInFolder[0])
+        if folderpath != syncDirectory:
+            uploadCmd="".join(["bash ", pushScript, " -o /", folder," "," ".join(filesInFolder)])
+        else:
+            uploadCmd="".join(["bash ", pushScript, " ".join(filesInFolder)])
+
+        if dry:
+            print('uploadCmd: ')
+            print(uploadCmd)
+        else:
+            os.system(uploadCmd)
+            #Sleep to allow restart
+            print('sleeping while rM restarts')
+            time.sleep(15)
+
+
+
+
+def uploadToRM_curl(dry):
+        # list of files in Library
+    syncFilesList=glob.glob(syncDirectory+"/*/*.pdf")
+    # list of files on the rM (hashed)
+    rmPdfList=glob.glob(remarkableBackupDirectory+remContent+"/*.pdf")
+    # make list of actual names (not hashed)
+    pdfNamesOnRm=[]
+    for i in range(0,len(rmPdfList)):
+        refNrPath= rmPdfList[i][:-4]
+        # get meta Data
+        meta= json.loads(open(refNrPath+".metadata").read())
+        # Make record of pdf files already on device
+        rmPdfName= meta["visibleName"]+".pdf" if meta["visibleName"][-4:]!=".pdf" else meta["visibleName"]
+        pdfNamesOnRm.append(rmPdfName)
+    
+    # remove files in the Notes directory from the list (those dont need to be re-uploaded)
+    syncFilesList= [ x for x in syncFilesList if "/Notes/" not in x ]
+    # find absolute path
+    syncNames = [ os.path.basename(f) for f in syncFilesList ]
+    # remove annotated pdf files from the list (those dont need to be re-uploaded)
+    syncNames= [ x for x in syncNames if "annot" not in x ]
+
+    # find files that are not already on the rM
+    # this gets elements that are in the sync list but not on the rM
+    uploadList = [x for x in syncNames if x not in pdfNamesOnRm]
+
     for i in range(0,len(uploadList)):
+        # get full path for the file to be uploaded
         filePath=glob.glob(syncDirectory+"/*/"+uploadList[i])[0]
+        # chop the ending if necessary to get file name
         fileName=uploadList[i] if uploadList[i][-4:0]!="pdf" else uploadList[:-4]
-    #     # ToDo
-    #     #http://remarkablewiki.com/index.php?title=Methods_of_access
+
         print("upload "+ fileName +" from "+filePath)
+
+        # # CURL version (can't copy directly to folders)
+        # #http://remarkablewiki.com/index.php?title=Methods_of_access
+        # #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf" 
         uploadCmd="".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@",filePath,";filename=",fileName,";type=application/pdf'"])
         os.system(uploadCmd)
+        # folderpath=os.path.dirname(filePath)
+        # if folderpath != syncDirectory:
+        #     foldername=folderpath.split('/')[-1]
+        #     uploadCmd="".join(["bash ", pushScript, " -o /", foldername," ",filePath])
+        # else:
+        #     uploadCmd="".join(["bash ", pushScript, filePath])
 
-    #     #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf" 
-    #     # Upload successfullchronos@localhost ~/Downloads $
-    #     print("upload "+ uploadList[i])
+        if dry:
+            print('uploadCmd: ')
+            print(uploadCmd)
+        else:
+            os.system(uploadCmd)
+            # time.sleep(10)
+
+
 
 
 
