@@ -9,6 +9,8 @@ import time
 from argparse import ArgumentParser
 # needs imagemagick, pdftk
 
+__prog_name__ = "sync"
+
 # Set Parameters and folders for sync
 syncDirectory="/Users/lisa/Documents/Literature"
 remarkableBackupDirectory="/Users/lisa/Documents/remarkableBackup"
@@ -269,4 +271,5 @@ def uploadToRM_curl(dry):
 
 
 if __name__ == "__main__":
+    print("main")
     main()
