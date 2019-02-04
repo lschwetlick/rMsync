@@ -31,6 +31,7 @@ remarkableIP = "10.11.99.1"
 # https://github.com/reHackable/scripts
 pushScript = "/Users/lisa/Documents/Projects/rMTools/scripts/host/repush.sh"
 bgPath = "/Users/lisa/Documents/remarkableBackup/templates/"
+emptyRm = "/Users/lisa/Documents/remarkableBackup/empty.rm"
 
 def main():
     parser = ArgumentParser()
@@ -78,6 +79,8 @@ def main():
 def backupRM():
     print("Backing up your remarkable files")
     #Sometimes the remarkable doesnt connect properly. In that case turn off & disconnect -> turn on -> reconnect
+    shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
+    print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP, ":", remarkableDirectory, " ", remarkableBackupDirectory])
     os.system(backupCommand)
     # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup")
@@ -144,6 +147,10 @@ def convertFiles():
                         # has this version changed since we last exported it?
                         remoteChanged = remote_annot_mod_time > local_annot_mod_time
                     if remoteChanged:
+                        try:
+                            os.mkdir("tempDir")
+                        except:
+                            pass
                         # only then fo we export
                         print(fname+" is being exported.")
                         origPDF = glob.glob(syncFilePath)[0]
@@ -153,17 +160,18 @@ def convertFiles():
                         pdfsize = input1.getPage(0).mediaBox
                         pdfx = int(pdfsize[2])
                         pdfy = int(pdfsize[3])
+                        rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
                         # export
                         pdflist = []
                         for pg in range(0, npages):
                             # print(pg)
                             rmpath = refNrPath+"/"+str(pg)+".rm"
-                            try:
-                                os.mkdir("tempDir")
-                            except:
-                                pass
-                            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
-                            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
+                            if os.path.isfile(rmpath):
+                                rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
+                                svg_path = "tempDir/temprm" + str(pg) + ".svg"
+                            else:
+                                svg_path = "tempDir/emptyrm.svg"
+                            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
                             os.system(convertSvg2PdfCmd)
                             pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
                         #pdflist = glob.glob("tempDir/*.pdf")
