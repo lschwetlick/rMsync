@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
-# Problems:
-# - doesnt export all notebooks
+"""
+Commandline Utility to Backup, Convert and Upload files from the remarkable
+"""
 
+#!/usr/bin/env python3
 
 ### IMPORTS ###
 import os
@@ -34,6 +35,9 @@ bgPath = "/Users/lisa/Documents/remarkableBackup/templates/"
 emptyRm = "/Users/lisa/Documents/remarkableBackup/empty.rm"
 
 def main():
+    """
+    Parse Commandline Arguments
+    """
     parser = ArgumentParser()
     parser.add_argument("-b",
                         "--backup",
@@ -77,6 +81,10 @@ def main():
 # TODO: catch connection errors
 # TODO: only backup changed files (Problem is that rM doesnt run rsync)
 def backupRM():
+    """
+    Backs up all files on the remarkable so we can then convert them. Also its always nice to have a backup.
+    Downside is that it kaes a while because rsync doesn't work and we are copying EVERYTHING!
+    """
     print("Backing up your remarkable files")
     #Sometimes the remarkable doesnt connect properly. In that case turn off & disconnect -> turn on -> reconnect
     #shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
@@ -87,6 +95,9 @@ def backupRM():
     # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup")
 
 def listFiles():
+    """
+    Prints a List of all PDFs on the rM
+    """
     rmPdfList = glob.glob(remarkableBackupDirectory + remContent + "/*.pdf")
     rmPdfNameList = []
     for f in rmPdfList:
@@ -101,6 +112,9 @@ def listFiles():
     print(len(rmPdfNameList))
 
 def printAllFiles():
+    """
+    Prints a list of all files.
+    """
     rmLinesList = glob.glob(remarkableBackupDirectory + remContent + "/*.lines")
     print(rmLinesList)
     print(len(rmLinesList))
@@ -113,9 +127,11 @@ def printAllFiles():
     print("len ", cntr)
 
 ### CONVERT TO PDF ###
-# TODO: underlay notebook templates?
-# TODO: convert only new/updated files
 def convertFiles():
+    """
+    Converts Files on rM to PDF versions and saves them the the appropriate folders. Only converts things that have been changed since the last sync.
+    """
+
     #### Get file lists
     files = [x for x in os.listdir(remarkableBackupDirectory+remContent) if "." not in x]
 
@@ -129,7 +145,6 @@ def convertFiles():
         # Does this lines file have an associated pdf?
         AnnotPDF = os.path.isfile(refNrPath + ".pdf")
         # Get list of all rm files i.e. all pages
-        # rm_paths = glob.glob(refNrPath+"/*.rm")
         npages = len(glob.glob(refNrPath+"/*.rm"))
         if npages != 0:
             if AnnotPDF:
@@ -148,12 +163,6 @@ def convertFiles():
                         # has this version changed since we last exported it?
                         remoteChanged = remote_annot_mod_time > local_annot_mod_time
                     if remoteChanged:
-                        try:
-                            os.mkdir("tempDir")
-                        except:
-                            pass
-                        # only then fo we export
-                        print(fname+" is being exported.")
                         origPDF = glob.glob(syncFilePath)[0]
                         #####
                         convertAnnotatedPDF(fname, refNrPath, origPDF)
@@ -187,6 +196,9 @@ def convertFiles():
 ### UPLOAD ###
 # TODO: Upload to folders (scripts/repush.sh)
 def uploadToRM(dry):
+    """
+    Uploads files to the rM. This should allow us to set a folder. DOESNT WORK YET!
+    """
     # list of files in Library
     syncFilesList = glob.glob(syncDirectory + "/*/*.pdf")
     # list of files on the rM (hashed)
@@ -247,7 +259,10 @@ def uploadToRM(dry):
 
 
 def uploadToRM_curl(dry):
-        # list of files in Library
+    """
+    Uploads files to the rM. They will land just in the home folder for manual sorting.
+    """
+    # list of files in Library
     syncFilesList = glob.glob(syncDirectory + "/*/*.pdf")
     # list of files on the rM (hashed)
     rmPdfList = glob.glob(remarkableBackupDirectory + remContent + "/*.pdf")
