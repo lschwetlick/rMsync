@@ -155,40 +155,13 @@ def convertFiles():
                         # only then fo we export
                         print(fname+" is being exported.")
                         origPDF = glob.glob(syncFilePath)[0]
-                        # subFolder = os.path.basename(os.path.dirname(origPDF))
-                        # get info on origin pdf
-                        input1 = PdfFileReader(open(origPDF, "rb"))
-                        pdfsize = input1.getPage(0).mediaBox
-                        pdfx = int(pdfsize[2])
-                        pdfy = int(pdfsize[3])
-                        rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
-                        # export
-                        pdflist = []
-                        for pg in range(0, npages):
-                            # print(pg)
-                            rmpath = refNrPath+"/"+str(pg)+".rm"
-                            if os.path.isfile(rmpath):
-                                rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
-                                svg_path = "tempDir/temprm" + str(pg) + ".svg"
-                            else:
-                                svg_path = "tempDir/emptyrm.svg"
-                            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
-                            os.system(convertSvg2PdfCmd)
-                            pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
-                        #pdflist = glob.glob("tempDir/*.pdf")
-                        merged_rm = "tempDir/merged_rm.pdf"
-                        os.system("convert "+ (" ").join(pdflist)+" "+merged_rm)
-                        # could also use empty pdf on remarkable, but computer side annotations are lost. this way if something has been annotated lots fo times it may stat to suck in quality
-                        # stamp extracted lines onto original with pdftk
-                        stampCmd = "".join(["pdftk ", origPDF, " multistamp ", merged_rm, " output ", origPDF[:-4], "_annot.pdf"])
-                        os.system(stampCmd)
-                        # Remove temporary files
-                        shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
+                        #####
+                        convertAnnotatedPDF(fname, refNrPath, origPDF)
+                        #####
                     else:
-                        print("hastnt been modified")
-
+                        print(fname + "hasn't been modified")
                 else:
-                    print(fname+" does not exist in the sync directory")
+                    print(fname + " does not exist in the sync directory")
                     # TODO allow y/n input whether it should be copied there anyway
             else:
                 # deal with notes
@@ -197,53 +170,16 @@ def convertFiles():
                 syncFilePath = syncDirectory + "/Notes/" + fname + ".pdf"
                 inSyncFolder = True if glob.glob(syncFilePath) != [] else False
                 remoteChanged = True
+                # does it exist yet?
                 if inSyncFolder:
                     local_annot_mod_time = os.path.getmtime(syncFilePath)
                     remote_annot_mod_time = int(meta['lastModified'])/1000 # rm time is in ms
                     # has this version changed since we last exported it?
                     remoteChanged = remote_annot_mod_time > local_annot_mod_time
                 if remoteChanged:
-                    try:
-                        os.mkdir('tempDir')
-                    except:
-                        pass
-                    with open(refNrPath+".pagedata") as file:
-                        backgrounds = [line.strip() for line in file]
-
-                    bg_pg = 0
-                    bglist = []
-                    for bg in backgrounds:
-                        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/bg_" + str(bg_pg) + ".pdf ", str(bgPath) + bg.replace(" ", "\ ") + ".svg"])
-                        os.system(convertSvg2PdfCmd)
-                        bglist.append("tempDir/bg_"+str(bg_pg)+".pdf ")
-                        bg_pg += 1
-                    merged_bg = "tempDir/merged_bg.pdf"
-                    os.system("convert " + (" ").join(bglist) + " " + merged_bg)
-                    input1 = PdfFileReader(open(merged_bg, 'rb'))
-                    pdfsize = input1.getPage(0).mediaBox
-                    pdfx = int(pdfsize[2])
-                    pdfy = int(pdfsize[3])
-
-                    npages = len(glob.glob(refNrPath+"/*.rm"))
-                    pdflist = []
-                    for pg in range(0, npages):
-                        # print(pg)
-                        rmpath = refNrPath + "/" + str(pg) + ".rm"
-                        # skip page if it doesnt extist anymore. This is fine in notebooks because nobody cares about the rM numbering.
-                        try:
-                            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False)
-                            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
-                            os.system(convertSvg2PdfCmd)
-                            pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
-                            #pdflist = glob.glob("tempDir/*.pdf")
-                            merged_rm = "tempDir/merged_rm.pdf"
-                            os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
-                            stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
-                            os.system(stampCmd)
-                            # Delete temp directory
-                            shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
-                        except FileNotFoundError:
-                            continue
+                    #####
+                    convertNotebook(fname, refNrPath)
+                    #####
                 else:
                     print(fname + "has not changed")
 
@@ -362,7 +298,95 @@ def uploadToRM_curl(dry):
             os.system(uploadCmd)
             # time.sleep(10)
 
+## CONVERT UNITS ##
+def convertNotebook(fname, refNrPath):
+    """
+    Converts Notebook to a PDF by taking the annotations and the template background for that notebook.
+    """
+    try:
+        os.mkdir('tempDir')
+    except:
+        pass
+    with open(refNrPath+".pagedata") as file:
+        backgrounds = [line.strip() for line in file]
 
+    bg_pg = 0
+    bglist = []
+    for bg in backgrounds:
+        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/bg_" + str(bg_pg) + ".pdf ", str(bgPath) + bg.replace(" ", "\ ") + ".svg"])
+        os.system(convertSvg2PdfCmd)
+        bglist.append("tempDir/bg_"+str(bg_pg)+".pdf ")
+        bg_pg += 1
+    merged_bg = "tempDir/merged_bg.pdf"
+    os.system("convert " + (" ").join(bglist) + " " + merged_bg)
+    input1 = PdfFileReader(open(merged_bg, 'rb'))
+    pdfsize = input1.getPage(0).mediaBox
+    # pdfx = int(pdfsize[2])
+    # pdfy = int(pdfsize[3])
+
+    npages = len(glob.glob(refNrPath+"/*.rm"))
+    pdflist = []
+    for pg in range(0, npages):
+        # print(pg)
+        rmpath = refNrPath + "/" + str(pg) + ".rm"
+        # skip page if it doesnt extist anymore. This is fine in notebooks because nobody cares about the rM numbering.
+        try:
+            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False)
+            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
+            os.system(convertSvg2PdfCmd)
+            pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
+            #pdflist = glob.glob("tempDir/*.pdf")
+            merged_rm = "tempDir/merged_rm.pdf"
+            os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
+            stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
+            os.system(stampCmd)
+            # Delete temp directory
+            shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
+        except FileNotFoundError:
+            continue
+    return True
+
+def convertAnnotatedPDF(fname, refNrPath, origPDF):
+    """
+    Converts a PDF and it's annotations into one PDF.
+    """
+    npages = len(glob.glob(refNrPath+"/*.rm"))
+    try:
+        os.mkdir("tempDir")
+    except:
+        pass
+    # only then fo we export
+    print(fname+" is being exported.")
+    # subFolder = os.path.basename(os.path.dirname(origPDF))
+    # get info on origin pdf
+    input1 = PdfFileReader(open(origPDF, "rb"))
+    pdfsize = input1.getPage(0).mediaBox
+    pdfx = int(pdfsize[2])
+    pdfy = int(pdfsize[3])
+    rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
+    # export
+    pdflist = []
+    for pg in range(0, npages):
+        # print(pg)
+        rmpath = refNrPath+"/"+str(pg)+".rm"
+        if os.path.isfile(rmpath):
+            rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
+            svg_path = "tempDir/temprm" + str(pg) + ".svg"
+        else:
+            svg_path = "tempDir/emptyrm.svg"
+        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
+        os.system(convertSvg2PdfCmd)
+        pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
+    #pdflist = glob.glob("tempDir/*.pdf")
+    merged_rm = "tempDir/merged_rm.pdf"
+    os.system("convert "+ (" ").join(pdflist)+" "+merged_rm)
+    # could also use empty pdf on remarkable, but computer side annotations are lost. this way if something has been annotated lots fo times it may stat to suck in quality
+    # stamp extracted lines onto original with pdftk
+    stampCmd = "".join(["pdftk ", origPDF, " multistamp ", merged_rm, " output ", origPDF[:-4], "_annot.pdf"])
+    os.system(stampCmd)
+    # Remove temporary files
+    shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
+    return True
 
 
 if __name__ == "__main__":
