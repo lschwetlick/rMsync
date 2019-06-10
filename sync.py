@@ -79,9 +79,10 @@ def main():
 def backupRM():
     print("Backing up your remarkable files")
     #Sometimes the remarkable doesnt connect properly. In that case turn off & disconnect -> turn on -> reconnect
-    shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
+    #shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
     print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP, ":", remarkableDirectory, " ", remarkableBackupDirectory])
+    print(backupCommand)
     os.system(backupCommand)
     # os.system("scp -r root@10.11.99.1:/home/root/.local/share/remarkable/xochitl /Users/lisa/Documents/remarkableBackup")
 
@@ -227,18 +228,22 @@ def convertFiles():
                     pdflist = []
                     for pg in range(0, npages):
                         # print(pg)
-                        rmpath = refNrPath+"/"+str(pg)+".rm"
-                        rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False)
-                        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
-                        os.system(convertSvg2PdfCmd)
-                        pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
-                    #pdflist = glob.glob("tempDir/*.pdf")
-                    merged_rm = "tempDir/merged_rm.pdf"
-                    os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
-                    stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
-                    os.system(stampCmd)
-                    # Delete temp directory
-                    shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
+                        rmpath = refNrPath + "/" + str(pg) + ".rm"
+                        # skip page if it doesnt extist anymore. This is fine in notebooks because nobody cares about the rM numbering.
+                        try:
+                            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False)
+                            convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
+                            os.system(convertSvg2PdfCmd)
+                            pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
+                            #pdflist = glob.glob("tempDir/*.pdf")
+                            merged_rm = "tempDir/merged_rm.pdf"
+                            os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
+                            stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
+                            os.system(stampCmd)
+                            # Delete temp directory
+                            shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
+                        except FileNotFoundError:
+                            continue
                 else:
                     print(fname + "has not changed")
 
