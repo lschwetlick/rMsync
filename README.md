@@ -10,6 +10,11 @@ Synchronization script for the reMarkable e-reader. The idea is to have a "Libra
 
 Adjust the paths at the top of the script to your setup before running!
 Also, copy and paste `empty.rm` from [here](https://github.com/lschwetlick/maxio/tree/master/tools/convert_procedure).
+For `rsync` get it from [here](https://github.com/JBBgameich/rsync-static/releases), copy it to `/bin` folder on remarkable, change the permissions, and make a symbolic link to it:
+```
+chmod a+x rsync-arm
+ln -s rsync-arm rsync
+```
 
 ### Usage
 ```
