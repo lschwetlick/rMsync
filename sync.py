@@ -21,8 +21,8 @@ sys.path.append("../maxio/tools") # Adds higher directory to python modules path
 __prog_name__ = "sync"
 
 # Set Parameters and folders for sync
-syncDirectory = "/home/atabak/Documents/Literature"
-remarkableBackupDirectory = "/home/atabak/Documents/remarkableBackup"
+syncDirectory = os.path.join(os.path.expanduser('~/'), "Documents/Literature"
+remarkableBackupDirectory = os.path.join(os.path.expanduser('~/'), "Documents/remarkableBackup"
 remContent = "/xochitl"
 remarkableDirectory = "/home/root/.local/share/remarkable/xochitl"
 remarkableUsername = "root"
@@ -31,9 +31,9 @@ remarkableIP = "10.11.99.1"
 # conversionScriptPDF = "/Users/lisa/Documents/Projects/rMTools/maxio/tools/rM2pdf"
 # conversionScriptNotes = "/Users/lisa/Documents/Projects/rMTools/maxio/tools/rM2svg"
 # https://github.com/reHackable/scripts
-pushScript = os.path.join(os.expanduser('~/'), "Remarkable/programming/scripts/host/repush.sh")
-bgPath = os.path.join(os.expanduser('~/'), "Documents/remarkableBackup/templates/"
-emptyRm = os.path.join(os.expanduser('~/'), "Documents/remarkableBackup/empty.rm"
+pushScript = os.path.join(os.path.expanduser('~/'), "Remarkable/programming/scripts/host/repush.sh")
+bgPath = os.path.join(os.path.expanduser('~/'), "Documents/remarkableBackup/templates/"
+emptyRm = os.path.join(os.path.expanduser('~/'), "Documents/remarkableBackup/empty.rm"
 
 def main():
     """
