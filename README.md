@@ -9,6 +9,7 @@ Synchronization script for the reMarkable e-reader. The idea is to have a "Libra
 * ( https://github.com/reHackable/scripts )
 
 Adjust the paths at the top of the script to your setup before running!
+Also, copy and paste `empty.rm` from [here](https://github.com/lschwetlick/maxio/tree/master/tools/convert_procedure).
 
 ### Usage
 ```
