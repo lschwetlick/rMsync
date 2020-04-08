@@ -13,8 +13,7 @@ import json
 import time
 from argparse import ArgumentParser
 from PyPDF2 import PdfFileReader
-sys.path.append("..") # Adds higher directory to python modules path.
-from newLines.new_rM2svg import rm2svg
+from rm_tools.rM2svg import rm2svg
 # needs imagemagick, pdftk
 
 __prog_name__ = "sync"
@@ -261,6 +260,7 @@ def uploadToRM(dry):
 def uploadToRM_curl(dry):
     """
     Uploads files to the rM. They will land just in the home folder for manual sorting.
+    filenames cant have "-" in them!
     """
     # list of files in Library
     syncFilesList = glob.glob(syncDirectory + "/*/*.pdf")
@@ -285,19 +285,21 @@ def uploadToRM_curl(dry):
     # find files that are not already on the rM
     # this gets elements that are in the sync list but not on the rM
     uploadList = [x for x in syncNames if x not in pdfNamesOnRm]
-
-    for i in range(0, len(uploadList)):
+    for upl in uploadList:
         # get full path for the file to be uploaded
-        filePath = glob.glob(syncDirectory + "/*/" + uploadList[i])[0]
+        filePath = glob.glob(syncDirectory + "/*/" + upl)[0]
         # chop the ending if necessary to get file name
-        fileName = uploadList[i] if uploadList[i][-4:0] != "pdf" else uploadList[:-4]
+        fileName = upl if upl[-4:0] != "pdf" else upl[:-4]
 
         print("upload "+ fileName +" from "+filePath)
 
         # # CURL version (can't copy directly to folders)
         # #http://remarkablewiki.com/index.php?title=Methods_of_access
         # #chronos@localhost ~/Downloads $ curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@Get_started_with_reMarkable.pdf;filename=Get_started_with_reMarkable.pdf;type=application/pdf"
-        uploadCmd = "".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@", filePath, ";filename=", fileName, ";type=application/pdf'"])
+        #                                  curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F "file=@bla.pdf;filename=bla.pdf;type=application/pdf" 
+        #uploadCmd = "".join(["curl 'http://10.11.99.1/upload' -H 'Origin: http://10.11.99.1' -H 'Accept: */*' -H 'Referer: http://10.11.99.1/' -H 'Connection: keep-alive' -F 'file=@", filePath, ";filename=", fileName, ";type=application/pdf'"])
+        uploadCmd = "".join(["curl 'http://",remarkableIP,"/upload' -H 'Origin: http://",remarkableIP,"' -H 'Accept: */*' -H 'Referer: http://",remarkableIP,"' -H 'Connection: keep-alive' -F 'file=@", filePath, ";filename=", fileName, ";type=application/pdf'"])
+        #print(uploadCmd)
         # os.system(uploadCmd)
         # folderpath=os.path.dirname(filePath)
         # if folderpath != syncDirectory:
@@ -336,36 +338,33 @@ def convertNotebook(fname, refNrPath):
     os.system("convert " + (" ").join(bglist) + " " + merged_bg)
     input1 = PdfFileReader(open(merged_bg, 'rb'))
     pdfsize = input1.getPage(0).mediaBox
-    # pdfx = int(pdfsize[2])
-    # pdfy = int(pdfsize[3])
+    content = json.loads(open(refNrPath + ".content").read())
 
-    npages = len(glob.glob(refNrPath+"/*.rm"))
     pdflist = []
-    for pg in range(0, npages):
-        # print(pg)
-        rmpath = refNrPath + "/" + str(pg) + ".rm"
+    for pg, pg_hash in enumerate(content['pages']):
+        rmpath = refNrPath + "/" + pg_hash + ".rm"
+        print("page",rmpath)
         # skip page if it doesnt extist anymore. This is fine in notebooks because nobody cares about the rM numbering.
         try:
-            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=False)
+            rm2svg(rmpath, "tempDir/temprm"+str(pg)+".svg", coloured_annotations=True)
             convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", "tempDir/temprm" + str(pg) + ".svg"])
             os.system(convertSvg2PdfCmd)
             pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
-            #pdflist = glob.glob("tempDir/*.pdf")
-            merged_rm = "tempDir/merged_rm.pdf"
-            os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
-            stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
-            os.system(stampCmd)
-            # Delete temp directory
-            shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
         except FileNotFoundError:
             continue
+
+    merged_rm = "tempDir/merged_rm.pdf"
+    os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
+    stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
+    os.system(stampCmd)
+    # Delete temp directory
+    shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
     return True
 
 def convertAnnotatedPDF(fname, refNrPath, origPDF):
     """
     Converts a PDF and it's annotations into one PDF.
     """
-    npages = len(glob.glob(refNrPath+"/*.rm"))
     try:
         os.mkdir("tempDir")
     except:
@@ -375,15 +374,19 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF):
     # subFolder = os.path.basename(os.path.dirname(origPDF))
     # get info on origin pdf
     input1 = PdfFileReader(open(origPDF, "rb"))
+    npages = input1.getNumPages()
     pdfsize = input1.getPage(0).mediaBox
     pdfx = int(pdfsize[2])
     pdfy = int(pdfsize[3])
-    rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
+    # rM will not create a file when the page is empty so this is a placeholde empty file to use.
+    rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=True, x_width=pdfx, y_width=pdfy)
+
+    content = json.loads(open(refNrPath + ".content").read())
     # export
     pdflist = []
-    for pg in range(0, npages):
+    for pg, pg_hash in enumerate(content['pages']):
         # print(pg)
-        rmpath = refNrPath+"/"+str(pg)+".rm"
+        rmpath = refNrPath + "/" + pg_hash + ".rm"
         if os.path.isfile(rmpath):
             rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
             svg_path = "tempDir/temprm" + str(pg) + ".svg"
