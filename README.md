@@ -33,3 +33,6 @@ optional arguments:
 ```
 python3 sync.py -bcu #backup, convert and upload: full sync
 ```
+
+### Notes
+8.4.2020 updated to work with rM version 2.0.2
