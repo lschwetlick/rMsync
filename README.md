@@ -35,4 +35,5 @@ python3 sync.py -bcu #backup, convert and upload: full sync
 ```
 
 ### Notes
-8.4.2020 updated to work with rM version 2.0.2
+- 8.4.2020 updated to work with rM version 2.0.2
+- 10.6.2019 some more explanation of this code on my [blog](http://lisaschwetlick.de/blog/2019/06/10/reMarkable-Update/)
