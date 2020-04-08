@@ -1,14 +1,21 @@
 # rMsync
 
-Synchronization script for the reMarkable e-reader. The idea is to have a "Library" folder on your PC which is synchronized with the reMarkable. When new files appear in this local directory this script will push them over to the rM. When files are edited, created or annotated on the rM they get converted to .pdf (from .lines) and copied back to the Library folder (with the suffix "_annot").
+Synchronization script for the reMarkable e-reader. The idea is to have a "Library" folder on your PC which is synchronized with the reMarkable. When new files appear in this local directory this script will push them over to the rM. When files are edited, created or annotated on the rM they get converted to .pdf (from .rm) and copied back to the Library folder (with the suffix "_annot"). Notes are also converted to PDF and saved to a Notes directory (and not reuploaded).
+
+The file structure might look like this:
+```
+|--Literature
+    |--Papers
+    |--Books
+    |--Notes
+```
+Adjust the paths at the top of the script!
 
 ### Requirements
 * imagemagick
 * pdftk
-* https://github.com/lschwetlick/maxio/tree/master/tools
+* https://github.com/lschwetlick/maxio/tree/master/rm_tools
 * ( https://github.com/reHackable/scripts )
-
-Adjust the paths at the top of the script to your setup before running!
 
 ### Usage
 ```
@@ -19,11 +26,10 @@ optional arguments:
   -c, --convert                       convert the backed up lines files to annotated pdfs and notes
   -u, --upload                        upload new files from the library directory to the rM
   -d, --dry_upload                    runs upload function but without actually pushing anything (just for debugging)
-  -l, --makeList                      lists files in the backup directory in plain text (as opposed to hashed)
+  -p --purge                          delete old backup before making new backup
 ```
 
 ### Example
-
 ```
 python3 sync.py -bcu #backup, convert and upload: full sync
 ```
