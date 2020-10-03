@@ -65,7 +65,18 @@ def main():
                         help="Deletes local backup folder before backing"
                              "up",
                         action="store_true")
+    parser.add_argument("-s",
+                        "--single",
+                        help="Uploads a single file",
+                        action="store")
     args = parser.parse_args()
+    if args.single:
+        uploadSingleFile(args.single, args.dry_upload)
+        if args.backup or args.convert or args.upload:
+            print("Uploaded single file. Please run separate command for " +
+                  "other tasks.")
+        return(True)
+
     if args.backup:
         backupRM(purge=args.purge)
     if args.convert:
@@ -299,6 +310,27 @@ def uploadToRM_curl(dry):
             print(uploadCmd)
         else:
             os.system(uploadCmd)
+
+def uploadSingleFile(filePath, dry=False):
+    """
+    Uploads one specific file. Useful if you dont want to do a full backup.
+    """
+    if os.path.isfile(filePath):
+        # chop the ending if necessary to get file name
+        basename = os.path.basename(filePath)
+        fileName = basename if basename[-4:0] != "pdf" else basename[:-4]
+
+        print("upload "+ fileName +" from "+filePath)
+
+        uploadCmd = "".join(["curl 'http://",remarkableIP,"/upload' -H 'Origin: http://",remarkableIP,"' -H 'Accept: */*' -H 'Referer: http://",remarkableIP,"' -H 'Connection: keep-alive' -F 'file=@", filePath, ";filename=", fileName, ";type=application/pdf'"])
+
+        if dry:
+            print("uploadCmd: ")
+            print(uploadCmd)
+        else:
+            os.system(uploadCmd)
+    else:
+        warnings.warn("Cant find that file, sorry!")
 
 
 def convertNotebook(fname, refNrPath):
