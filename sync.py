@@ -13,6 +13,7 @@ import time
 from argparse import ArgumentParser
 from PyPDF2 import PdfFileReader
 from rm_tools.rM2svg import rm2svg
+import warnings
 # needs imagemagick, pdftk
 
 __prog_name__ = "sync"
@@ -27,7 +28,7 @@ remarkableBackupDirectory = "/Users/lisa/Documents/remarkableBackup"
 remContent = "xochitl"
 remarkableDirectory = "/home/root/.local/share/remarkable/xochitl"
 remarkableUsername = "root"
-remarkableIP = "10.11.99.1"
+remarkableIP = "10.11.99.1" #"192.168.0.87"# "10.11.99.1"
 
 # This is a script that supposedly uploads multiple files at a time
 pushScript = "/Users/lisa/Documents/Projects/rMTools/scripts/host/repush.sh"
@@ -369,7 +370,11 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF):
     print(fname+" is being exported.")
 
     # get info on origin pdf
-    input1 = PdfFileReader(open(origPDF, "rb"))
+    try:
+        input1 = PdfFileReader(open(origPDF, "rb"))
+    except:
+        warnings.warn("could not read " + origPDF)
+        return False
     npages = input1.getNumPages()
     pdfsize = input1.getPage(0).mediaBox
     pdfx = int(pdfsize[2])
