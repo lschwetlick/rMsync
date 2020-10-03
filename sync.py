@@ -369,7 +369,11 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF):
     print(fname+" is being exported.")
 
     # get info on origin pdf
-    input1 = PdfFileReader(open(origPDF, "rb"))
+    try:
+        input1 = PdfFileReader(open(origPDF, "rb"))
+    except:
+        print("could not read"+ origPDF)
+        return False
     npages = input1.getNumPages()
     pdfsize = input1.getPage(0).mediaBox
     pdfx = int(pdfsize[2])
