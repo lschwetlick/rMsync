@@ -10,10 +10,10 @@ import shutil
 import glob
 import json
 import time
+import warnings
 from argparse import ArgumentParser
 from PyPDF2 import PdfFileReader
 from rm_tools.rM2svg import rm2svg
-import warnings
 # needs imagemagick, pdftk
 
 __prog_name__ = "sync"
