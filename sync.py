@@ -413,9 +413,48 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF):
     pdfy = int(pdfsize[3])
     # rM will not create a file when the page is empty so this is a
     # placeholde empty file to use.
-    rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=True,
-           x_width=pdfx, y_width=pdfy)
+    rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=True)
 
+    ratio_rm = 1872 / 1404
+    ratio_pdf = pdfy / pdfx
+    # rotate landscape pdfs
+    landscape = False
+    if ratio_pdf < 1:
+        landscape = True
+        os.system("pdftk " + origPDF + " cat 1-endwest output tempdir/rotated.pdf")
+        pdfx = int(pdfsize[3])
+        pdfy = int(pdfsize[2])
+        ratio_pdf = pdfy / pdfx
+        resizedPDF = "tempdir/rotated.pdf"
+    else:
+        resizedPDF = origPDF
+
+    if ratio_pdf < ratio_rm:
+        keep_side = "x"
+        change_side = "y"
+    else:
+        keep_side = "y"
+        change_side = "x"
+
+    size = {"x" : pdfx, "y" : pdfy}
+
+    keep_side_is = size[keep_side]
+    change_side_is = size[change_side]
+
+    change_side_should = keep_side_is * ratio_rm if keep_side_is < change_side_is else keep_side_is / ratio_rm
+
+    yoffset = change_side_should - change_side_is if change_side == "y" else 0
+    #print(size, ratio_rm, ratio_pdf, keep_side, change_side, keep_side_is, change_side_is, change_side_should, yoffset)
+
+    output_size = [keep_side_is, change_side_should] if change_side == "y" else [change_side_should, keep_side_is]
+    rszCmd = "gs -o tempDir/resized_org.pdf -sDEVICE=pdfwrite -g"+str(int(output_size[0]))+"0x"+str(int(output_size[1]))+"0 -c '<</PageOffset [0 " + str(int(yoffset)) + "]>> setpagedevice' -f " + resizedPDF
+    #print(rszCmd)
+    os.system(rszCmd)
+    if landscape:
+        os.system("pdftk tempDir/resized_org.pdf cat 1-endnorth output tempdir/resized_org2.pdf")
+        resizedPDF = "tempDir/resized_org2.pdf"
+    else:
+        resizedPDF = "tempDir/resized_org.pdf"
     # find what the page hashes are
     content = json.loads(open(refNrPath + ".content").read())
     # convert all pages
@@ -424,18 +463,20 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF):
         # print(pg)
         rmpath = refNrPath + "/" + pg_hash + ".rm"
         if os.path.isfile(rmpath):
-            rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False, x_width=pdfx, y_width=pdfy)
+            rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False)
             svg_path = "tempDir/temprm" + str(pg) + ".svg"
         else:
             svg_path = "tempDir/emptyrm.svg"
-        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
+        convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -a -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
         os.system(convertSvg2PdfCmd)
         pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
     # merge the annotated pages
     merged_rm = "tempDir/merged_rm.pdf"
-    os.system("convert "+ (" ").join(pdflist)+" "+merged_rm)
+    mergeCmd = "convert -density 200x200 -quality 80 " + (" ").join(pdflist) + " " + merged_rm
+    #print(mergeCmd)
+    os.system(mergeCmd)
     # stamp extracted annotations onto original with pdftk
-    stampCmd = "".join(["pdftk ", origPDF, " multistamp ", merged_rm, " output ", origPDF[:-4], "_annot.pdf"])
+    stampCmd = "".join(["pdftk ", resizedPDF, " multistamp ", merged_rm, " output ", origPDF[:-4], "_annot.pdf"])
     os.system(stampCmd)
     # Remove temporary files
     shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
