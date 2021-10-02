@@ -103,7 +103,7 @@ def backupRM(purge=False, verbose=False):
     """
     print("Backing up your remarkable files")
     if purge:
-        shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
+        shutil.rmtree("/Users/lisa/Documents/remarkableBackup/" + remContent)
         print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP,
                              ":", remarkableDirectory, " ",
@@ -502,9 +502,18 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
         convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -a -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
         os.system(convertSvg2PdfCmd)
         pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
+    # merging at high quality gets sooo slow, so we decrease quality for big files
+    density_pdf = 200
+    quality_pdf = 80
+    if pg > 80:
+        density_pdf = 100
+        quality_pdf = 50
+
     # merge the annotated pages
     merged_rm = "tempDir/merged_rm.pdf"
-    mergeCmd = "convert -density 200x200 -quality 80 " + (" ").join(pdflist) + " " + merged_rm
+    mergeCmd = f"convert -density {density_pdf}x{density_pdf} -quality {quality_pdf} " + (" ").join(pdflist) + " " + merged_rm
+    if verbose:
+        print(f"Doing Merge: {mergeCmd}")
     #print(mergeCmd)
     os.system(mergeCmd)
     # stamp extracted annotations onto original with pdftk
