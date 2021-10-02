@@ -69,11 +69,6 @@ def main():
                         "--single",
                         help="Uploads a single file",
                         action="store")
-    parser.add_argument("-v",
-                        "--verbose",
-                        help="prints info about exactly what is happening",
-                        action="store_true")
-
     args = parser.parse_args()
     if args.single:
         uploadSingleFile(args.single, args.dry_upload)
@@ -81,17 +76,18 @@ def main():
             print("Uploaded single file. Please run separate command for " +
                   "other tasks.")
         return(True)
+
     if args.backup:
-        backupRM(purge=args.purge, verbose=args.verbose)
+        backupRM(purge=args.purge)
     if args.convert:
-        convertFiles(verbose=args.verbose)
+        convertFiles()
     if args.upload:
         print("upload")
-        uploadToRM_curl(args.dry_upload, verbose=args.verbose)
+        uploadToRM_curl(args.dry_upload)
     print("Done!")
 
 ### BACK UP ###
-def backupRM(purge=False, verbose=False):
+def backupRM(purge=False):
     """
     Backs up all files on the remarkable so we can then convert them.
     Also its always nice to have a backup. Downside is that it kaes a while
@@ -103,17 +99,16 @@ def backupRM(purge=False, verbose=False):
     """
     print("Backing up your remarkable files")
     if purge:
-        shutil.rmtree("/Users/lisa/Documents/remarkableBackup/" + remContent)
+        shutil.rmtree("/Users/lisa/Documents/remarkableBackup" + remContent)
         print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP,
                              ":", remarkableDirectory, " ",
                              remarkableBackupDirectory])
-    if verbose:
-        print(f"Doing Backup: {backupCommand}")
+    #print(backupCommand)
     os.system(backupCommand)
 
 ### CONVERT TO PDF ###
-def convertFiles(verbose=False):
+def convertFiles():
     """
     Converts Files on rM to PDF versions and saves them the the appropriate
     folders. Only converts things that have been changed since the last sync.
@@ -169,12 +164,10 @@ def convertFiles(verbose=False):
                     if remoteChanged:
                         origPDF = glob.glob(syncFilePath)[0]
                         #####
-                        if verbose:
-                            print(f"I will convert the file with {fname}, {refNrPath}, {origPDF}")
-                        convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=verbose)
+                        convertAnnotatedPDF(fname, refNrPath, origPDF)
                         #####
                     else:
-                        print(fname + " hasn't been modified")
+                        print(fname + "hasn't been modified")
                 else:
                     print(fname + " does not exist in the sync directory")
                     # TODO allow y/n input whether it should be copied there
@@ -192,7 +185,7 @@ def convertFiles(verbose=False):
                     remoteChanged = remote_annot_mod_time > local_annot_mod_time
                 if remoteChanged:
                     #####
-                    convertNotebook(fname, refNrPath, verbose=verbose)
+                    convertNotebook(fname, refNrPath)
                     #####
                 else:
                     print(fname + "has not changed")
@@ -200,7 +193,7 @@ def convertFiles(verbose=False):
 
 ### UPLOAD ###
 # TODO: Upload to folders (scripts/repush.sh)
-def uploadToRM(dry, verbose=False):
+def uploadToRM(dry):
     """
     Uploads files to the rM. This should allow us to set a folder. DOESNT WORK YET!
     """
@@ -255,8 +248,6 @@ def uploadToRM(dry, verbose=False):
             print("uploadCmd: ")
             print(uploadCmd)
         else:
-            if verbose:
-                print(f"Doing Upload: f{uploadCmd}")
             os.system(uploadCmd)
             #Sleep to allow restart
             print("sleeping while rM restarts")
@@ -265,7 +256,7 @@ def uploadToRM(dry, verbose=False):
 
 
 
-def uploadToRM_curl(dry, verbose):
+def uploadToRM_curl(dry):
     """
     Uploads files to the rM. They will land just in the home folder for manual
     sorting. filenames cant have "-" in them!
@@ -320,7 +311,7 @@ def uploadToRM_curl(dry, verbose):
         else:
             os.system(uploadCmd)
 
-def uploadSingleFile(filePath, dry=False, verbose=False):
+def uploadSingleFile(filePath, dry=False):
     """
     Uploads one specific file. Useful if you dont want to do a full backup.
     """
@@ -337,14 +328,12 @@ def uploadSingleFile(filePath, dry=False, verbose=False):
             print("uploadCmd: ")
             print(uploadCmd)
         else:
-            if verbose:
-                print(f"Doing Upload: {uploadCmd}")
             os.system(uploadCmd)
     else:
         warnings.warn("Cant find that file, sorry!")
 
 
-def convertNotebook(fname, refNrPath, verbose=False):
+def convertNotebook(fname, refNrPath):
     """
     Converts Notebook to a PDF by taking the annotations and the template
     background for that notebook.
@@ -364,16 +353,11 @@ def convertNotebook(fname, refNrPath, verbose=False):
         convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -o ", "tempDir/bg_"\
                                      + str(bg_pg) + ".pdf ", str(bgPath)\
                                      + bg.replace(" ", "\ ") + ".svg"])
-        if verbose:
-            print(f"Doing Convert: {convertSvg2PdfCmd}")
         os.system(convertSvg2PdfCmd)
         bglist.append("tempDir/bg_"+str(bg_pg)+".pdf ")
         bg_pg += 1
     merged_bg = "tempDir/merged_bg.pdf"
-    convert_command = "convert " + (" ").join(bglist) + " " + merged_bg
-    if verbose:
-        print(f"Doing coversion: {convert_command}")
-    os.system(convert_command)
+    os.system("convert " + (" ").join(bglist) + " " + merged_bg)
     # get info from the pdf we just made
     input1 = PdfFileReader(open(merged_bg, 'rb'))
     pdfsize = input1.getPage(0).mediaBox
@@ -382,8 +366,6 @@ def convertNotebook(fname, refNrPath, verbose=False):
     # Now convert all Pages
     pdflist = []
     for pg, pg_hash in enumerate(content['pages']):
-        if verbose:
-            print(f"Page: {pg}")
         rmpath = refNrPath + "/" + pg_hash + ".rm"
         # skip page if it doesnt extist anymore. This is fine in notebooks
         # because nobody cares about the rM numbering.
@@ -399,21 +381,16 @@ def convertNotebook(fname, refNrPath, verbose=False):
             continue
     # merge all annotation pages
     merged_rm = "tempDir/merged_rm.pdf"
-    mergeCmd = "convert " + (" ").join(pdflist) + " " + merged_rm
-    if verbose:
-        print(f"Doing Merge: {mergeCmd}")
-    os.system(mergeCmd)
+    os.system("convert " + (" ").join(pdflist) + " " + merged_rm)
     # combine with background
     stampCmd = "".join(["pdftk ", merged_bg, " multistamp ", merged_rm, \
         " output " + syncDirectory + "/Notes/" + fname + ".pdf"])
-    if verbose:
-        print(f"Doing Stamp: {stampCmd}")
     os.system(stampCmd)
     # Delete temp directory
     shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
     return True
 
-def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
+def convertAnnotatedPDF(fname, refNrPath, origPDF):
     """
     Converts a PDF and it's annotations into one PDF.
     """
@@ -434,10 +411,6 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
     pdfsize = input1.getPage(0).mediaBox
     pdfx = int(pdfsize[2])
     pdfy = int(pdfsize[3])
-
-    if verbose:
-        print(f"the pdf has size {pdfx}x{pdfy}")
-
     # rM will not create a file when the page is empty so this is a
     # placeholde empty file to use.
     rm2svg(emptyRm, "tempDir/emptyrm.svg", coloured_annotations=True)
@@ -453,9 +426,6 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
         pdfy = int(pdfsize[2])
         ratio_pdf = pdfy / pdfx
         resizedPDF = "tempdir/rotated.pdf"
-        if verbose:
-            print(f"decided to rotate")
-
     else:
         resizedPDF = origPDF
 
@@ -485,14 +455,12 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
         resizedPDF = "tempDir/resized_org2.pdf"
     else:
         resizedPDF = "tempDir/resized_org.pdf"
-
     # find what the page hashes are
     content = json.loads(open(refNrPath + ".content").read())
     # convert all pages
     pdflist = []
     for pg, pg_hash in enumerate(content['pages']):
-        if verbose:
-            print(f"converting page {pg}")
+        # print(pg)
         rmpath = refNrPath + "/" + pg_hash + ".rm"
         if os.path.isfile(rmpath):
             rm2svg(rmpath, "tempDir/temprm" + str(pg) + ".svg", coloured_annotations=False)
@@ -502,24 +470,13 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
         convertSvg2PdfCmd = "".join(["rsvg-convert -f pdf -a -o ", "tempDir/temppdf" + str(pg), ".pdf ", svg_path])
         os.system(convertSvg2PdfCmd)
         pdflist.append("tempDir/temppdf"+str(pg)+".pdf")
-    # merging at high quality gets sooo slow, so we decrease quality for big files
-    density_pdf = 200
-    quality_pdf = 80
-    if pg > 80:
-        density_pdf = 100
-        quality_pdf = 50
-
     # merge the annotated pages
     merged_rm = "tempDir/merged_rm.pdf"
-    mergeCmd = f"convert -density {density_pdf}x{density_pdf} -quality {quality_pdf} " + (" ").join(pdflist) + " " + merged_rm
-    if verbose:
-        print(f"Doing Merge: {mergeCmd}")
+    mergeCmd = "convert -density 200x200 -quality 80 " + (" ").join(pdflist) + " " + merged_rm
     #print(mergeCmd)
     os.system(mergeCmd)
     # stamp extracted annotations onto original with pdftk
     stampCmd = "".join(["pdftk ", resizedPDF, " multistamp ", merged_rm, " output ", origPDF[:-4], "_annot.pdf"])
-    if verbose:
-        print(f"Doing Stamp: {stampCmd}")
     os.system(stampCmd)
     # Remove temporary files
     shutil.rmtree("tempDir", ignore_errors=False, onerror=None)
