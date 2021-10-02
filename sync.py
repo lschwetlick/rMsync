@@ -146,7 +146,7 @@ def convertFiles(verbose=False):
         AnnotPDF = os.path.isfile(refNrPath + ".pdf")
         convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=verbose)
 
-def convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=False):
+def convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=False, force=False):
     # Get list of all rm files i.e. all pages
     npages = len(glob.glob(refNrPath + "/*.rm"))
     if npages != 0:
@@ -180,7 +180,7 @@ def convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=False):
                     remoteChanged = \
                         remote_annot_mod_time > local_annot_mod_time
                 # update if the remote version has changed
-                if remoteChanged:
+                if remoteChanged or force:
                     origPDF = glob.glob(syncFilePath)[0]
                     #####
                     if verbose:
