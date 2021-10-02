@@ -73,9 +73,9 @@ def main():
                         "--verbose",
                         help="prints info about exactly what is happening",
                         action="store_true")
-    parser.add_argument("-j",
+    parser.add_argument("-f",
                         "--conv_one",
-                        help="Converts a single file",
+                        help="Finds and Converts a single file",
                         action="store")
 
     args = parser.parse_args()
@@ -86,7 +86,7 @@ def main():
                   "other tasks.")
         return(True)
     if args.conv_one:
-        findAndConvert(args.single, verbose=args.verbose)
+        findAndConvert(args.conv_one, verbose=args.verbose)
         if args.backup or args.convert or args.upload:
             print("Converted single file. Please run separate command for " +
                   "other tasks.")
@@ -213,16 +213,39 @@ def convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=False, force=Fal
 
 
 
-def findAndConvert():
-    pass
+def findAndConvert(file_to_convert, verbose=False, save_to=""):
+    """
+    Find and covert  a single file
+    """
+    name_dict = makeNameDict()
+    if file_to_convert not in name_dict.keys():
+        print(name_dict.keys())
+        raise Exception(f"That file {file_to_convert} does not appear to be there.")
+    refNrPath = name_dict[file_to_convert]
+    # Does this lines file have an associated pdf?
+    AnnotPDF = os.path.isfile(refNrPath + ".pdf")
+    meta = json.loads(open(refNrPath + ".metadata").read())
+    convertSingleFile(refNrPath, AnnotPDF, meta, file_to_convert, verbose=verbose, force=True)
 
 
-
-
-
-
-
-
+def makeNameDict():
+    """
+    Return a dictionary of all files and their reference numbers
+    """
+    d = {}
+    #### Get file lists
+    tmp = os.path.join(remarkableBackupDirectory,remContent)
+    files = [x for x in os.listdir(tmp) if "." not in x]
+    for i in range(0, len(files)):
+        # get file reference number
+        refNrPath = os.path.join(remarkableBackupDirectory, remContent,
+                                 files[i])
+        # get meta Data
+        meta = json.loads(open(refNrPath + ".metadata").read())
+        fname = meta["visibleName"]
+        fname = fname.replace(" ", "_")
+        d[fname] = refNrPath
+    return d
 
 
 ### UPLOAD ###
