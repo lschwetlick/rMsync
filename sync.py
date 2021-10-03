@@ -73,6 +73,10 @@ def main():
                         "--verbose",
                         help="prints info about exactly what is happening",
                         action="store_true")
+    parser.add_argument("-f",
+                        "--conv_one",
+                        help="Finds and Converts a single file",
+                        action="store")
 
     args = parser.parse_args()
     if args.single:
@@ -81,6 +85,13 @@ def main():
             print("Uploaded single file. Please run separate command for " +
                   "other tasks.")
         return(True)
+    if args.conv_one:
+        findAndConvert(args.conv_one, verbose=args.verbose)
+        if args.backup or args.convert or args.upload:
+            print("Converted single file. Please run separate command for " +
+                  "other tasks.")
+        return(True)
+
     if args.backup:
         backupRM(purge=args.purge, verbose=args.verbose)
     if args.convert:
@@ -133,69 +144,108 @@ def convertFiles(verbose=False):
         fname = fname.replace(" ", "_")
         # Does this lines file have an associated pdf?
         AnnotPDF = os.path.isfile(refNrPath + ".pdf")
-        # Get list of all rm files i.e. all pages
-        npages = len(glob.glob(refNrPath + "/*.rm"))
-        if npages != 0:
-            if AnnotPDF:
-                # we have found an annotated pdf
-                # now make sure it has the right ending
-                if meta["visibleName"][-4:] != ".pdf":
-                    syncFilePath = os.path.join(syncDirectory, "*",
-                                                meta["visibleName"] + ".pdf")
-                else:
-                    syncFilePath = os.path.join(syncDirectory, "*",
-                                                meta["visibleName"])
+        convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=verbose)
 
-                # does the file exist in our system?
-                inSyncFolder = glob.glob(syncFilePath) != []
-
-                if inSyncFolder:
-                    # have we exported this thing before?
-                    local_annotExist = \
-                        glob.glob(syncFilePath[:-4] + "_annot.pdf") != []
-                    # first, assume, it needs converting
-                    remoteChanged = True
-                    if local_annotExist:
-                        # if it already exists check when it was last updated
-                        local_annotPath = \
-                            glob.glob(syncFilePath[:-4]+"_annot.pdf")[0]
-                        local_annot_mod_time = os.path.getmtime(local_annotPath)
-                        # rm time is in ms
-                        remote_annot_mod_time = int(meta["lastModified"])/1000
-                        # has this version changed since we last exported it?
-                        remoteChanged = \
-                            remote_annot_mod_time > local_annot_mod_time
-                    # update if the remote version has changed
-                    if remoteChanged:
-                        origPDF = glob.glob(syncFilePath)[0]
-                        #####
-                        if verbose:
-                            print(f"I will convert the file with {fname}, {refNrPath}, {origPDF}")
-                        convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=verbose)
-                        #####
-                    else:
-                        print(fname + " hasn't been modified")
-                else:
-                    print(fname + " does not exist in the sync directory")
-                    # TODO allow y/n input whether it should be copied there
-                    # anyway
+def convertSingleFile(refNrPath, AnnotPDF, meta, fname, verbose=False, force=False):
+    # Get list of all rm files i.e. all pages
+    npages = len(glob.glob(refNrPath + "/*.rm"))
+    if npages != 0:
+        if AnnotPDF:
+            # we have found an annotated pdf
+            # now make sure it has the right ending
+            if meta["visibleName"][-4:] != ".pdf":
+                syncFilePath = os.path.join(syncDirectory, "*",
+                                            meta["visibleName"] + ".pdf")
             else:
-                # we found a note
-                print("exporting Notebook " + fname)
-                syncFilePath = os.path.join(syncDirectory, notesDirectory,
-                                       fname + ".pdf")
-                inSyncFolder = glob.glob(syncFilePath) != []
+                syncFilePath = os.path.join(syncDirectory, "*",
+                                            meta["visibleName"])
+
+            # does the file exist in our system?
+            inSyncFolder = glob.glob(syncFilePath) != []
+
+            if inSyncFolder:
+                # have we exported this thing before?
+                local_annotExist = \
+                    glob.glob(syncFilePath[:-4] + "_annot.pdf") != []
+                # first, assume, it needs converting
                 remoteChanged = True
-                if inSyncFolder:
-                    local_annot_mod_time = os.path.getmtime(syncFilePath)
-                    remote_annot_mod_time = int(meta['lastModified'])/1000
-                    remoteChanged = remote_annot_mod_time > local_annot_mod_time
-                if remoteChanged:
+                if local_annotExist:
+                    # if it already exists check when it was last updated
+                    local_annotPath = \
+                        glob.glob(syncFilePath[:-4]+"_annot.pdf")[0]
+                    local_annot_mod_time = os.path.getmtime(local_annotPath)
+                    # rm time is in ms
+                    remote_annot_mod_time = int(meta["lastModified"])/1000
+                    # has this version changed since we last exported it?
+                    remoteChanged = \
+                        remote_annot_mod_time > local_annot_mod_time
+                # update if the remote version has changed
+                if remoteChanged or force:
+                    origPDF = glob.glob(syncFilePath)[0]
                     #####
-                    convertNotebook(fname, refNrPath, verbose=verbose)
+                    if verbose:
+                        print(f"I will convert the file with {fname}, {refNrPath}, {origPDF}")
+                    convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=verbose)
                     #####
                 else:
-                    print(fname + "has not changed")
+                    print(fname + " hasn't been modified")
+            else:
+                print(fname + " does not exist in the sync directory")
+                # TODO allow y/n input whether it should be copied there
+                # anyway
+        else:
+            # we found a note
+            print("exporting Notebook " + fname)
+            syncFilePath = os.path.join(syncDirectory, notesDirectory,
+                                    fname + ".pdf")
+            inSyncFolder = glob.glob(syncFilePath) != []
+            remoteChanged = True
+            if inSyncFolder:
+                local_annot_mod_time = os.path.getmtime(syncFilePath)
+                remote_annot_mod_time = int(meta['lastModified'])/1000
+                remoteChanged = remote_annot_mod_time > local_annot_mod_time
+            if remoteChanged:
+                #####
+                convertNotebook(fname, refNrPath, verbose=verbose)
+                #####
+            else:
+                print(fname + "has not changed")
+
+
+
+def findAndConvert(file_to_convert, verbose=False, save_to=""):
+    """
+    Find and covert  a single file
+    """
+    name_dict = makeNameDict()
+    if file_to_convert not in name_dict.keys():
+        print(name_dict.keys())
+        raise Exception(f"That file {file_to_convert} does not appear to be there.")
+    refNrPath = name_dict[file_to_convert]
+    # Does this lines file have an associated pdf?
+    AnnotPDF = os.path.isfile(refNrPath + ".pdf")
+    meta = json.loads(open(refNrPath + ".metadata").read())
+    convertSingleFile(refNrPath, AnnotPDF, meta, file_to_convert, verbose=verbose, force=True)
+
+
+def makeNameDict():
+    """
+    Return a dictionary of all files and their reference numbers
+    """
+    d = {}
+    #### Get file lists
+    tmp = os.path.join(remarkableBackupDirectory,remContent)
+    files = [x for x in os.listdir(tmp) if "." not in x]
+    for i in range(0, len(files)):
+        # get file reference number
+        refNrPath = os.path.join(remarkableBackupDirectory, remContent,
+                                 files[i])
+        # get meta Data
+        meta = json.loads(open(refNrPath + ".metadata").read())
+        fname = meta["visibleName"]
+        fname = fname.replace(" ", "_")
+        d[fname] = refNrPath
+    return d
 
 
 ### UPLOAD ###
