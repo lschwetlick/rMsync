@@ -12,7 +12,8 @@ import json
 import time
 import warnings
 from argparse import ArgumentParser
-from PyPDF2 import PdfFileReader
+#from PyPDF2 import PdfFileReader
+import pikepdf
 from rm_tools.rM2svg import rm2svg
 # needs imagemagick, pdftk
 
@@ -424,9 +425,11 @@ def convertNotebook(fname, refNrPath, verbose=False):
     if verbose:
         print(f"Doing coversion: {convert_command}")
     os.system(convert_command)
+
     # get info from the pdf we just made
-    input1 = PdfFileReader(open(merged_bg, 'rb'))
-    pdfsize = input1.getPage(0).mediaBox
+    #input1 = pikepdf.Pdf.open(origPDF)
+    #pdfsize = input1.pages[0].trimbox
+
     # find out the page hashes
     content = json.loads(open(refNrPath + ".content").read())
     # Now convert all Pages
@@ -476,12 +479,13 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
 
     # get info on origin pdf
     try:
-        input1 = PdfFileReader(open(origPDF, "rb"))
+        input1 = pikepdf.Pdf.open(origPDF)
+        #input1 = PdfFileReader(open(origPDF, "rb"))
     except:
         warnings.warn("could not read " + origPDF)
         return False
-    npages = input1.getNumPages()
-    pdfsize = input1.getPage(0).mediaBox
+    npages = len(input1.pages)
+    pdfsize = input1.pages[0].trimbox
     pdfx = int(pdfsize[2])
     pdfy = int(pdfsize[3])
     if verbose:
