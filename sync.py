@@ -500,20 +500,15 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
     # rotate landscape pdfs
     landscape = False
     if ratio_pdf < 1:
-        landscape = True
-        os.system("pdftk " + origPDF + " cat 1-endwest output tempdir/rotated.pdf")
-        pdfx = int(pdfsize[3])
-        pdfy = int(pdfsize[2])
-        ratio_pdf = pdfy / pdfx
-        resizedPDF = "tempdir/rotated.pdf"
         if verbose:
-            print(f"decided to rotate")
-
-    else:
-        resizedPDF = origPDF
+            print(f"its landscape format {ratio_pdf}")
+        landscape = True
 
     if ratio_pdf != ratio_rm:
-        warnings.warn("The PDF you are annotating has an unexpected size. Annotations may be misaligned.")
+        pdf_obj = resize_pages(origPDF, landscape, verbose=verbose)
+        pdf_obj.save("tempdir/resized.pdf") # saves as "resizedPDF"
+        resizedPDF = "tempdir/resized.pdf"
+        #warnings.warn("The PDF you are annotating has an unexpected size. Annotations may be misaligned.")
 
     # find what the page hashes are
     content = json.loads(open(refNrPath + ".content").read())
@@ -555,6 +550,58 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
     return True
 
 
+def get_target_dimensions(pdfx, pdfy):
+    """
+    calculates the size to which the base pdf must be scaled to have the same
+    page size as the rm. This is necessary to successfully stamp the pages
+    together. It also gives a y_offset, because pdf has lower left coordinates
+    but the rm displays small pages at the top left.
+    """
+    ratio_rm = 1872 / 1404
+    ratio_pdf = pdfy / pdfx
+    if ratio_pdf < ratio_rm:
+        keep_side = "x"
+        change_side = "y"
+    else:
+        keep_side = "y"
+        change_side = "x"
+    size = {"x" : pdfx, "y" : pdfy}
+
+    keep_side_is = size[keep_side]
+    change_side_is = size[change_side]
+
+    # <= because on squares, it shouldnt rotate!
+    change_side_should = keep_side_is * ratio_rm if keep_side_is <= change_side_is else keep_side_is / ratio_rm
+
+    yoffset = change_side_should - change_side_is if change_side == "y" else 0
+
+    output_size = [keep_side_is, change_side_should] if change_side == "y" else [change_side_should, keep_side_is]
+    return output_size, yoffset
+
+
+def resize_pages(pdfpath, landscape, verbose=False):
+    """
+    resizes pages using pike pdf to match the remarkable viewport.
+    """
+    pdf = pikepdf.Pdf.open(pdfpath)
+    for i in range(len(pdf.pages)):
+        page = pdf.pages[i]
+        x = page.trimbox[2]
+        y = page.trimbox[3]
+        if landscape:
+            print("land")
+            page.Rotate = 90
+            x = page.trimbox[3]
+            y = page.trimbox[2]
+
+        if verbose:
+            print(f"transforming page {i} to size {x,y}")
+        output_size, yoffset = get_target_dimensions(x, y)
+        empty_pg = pdf.add_blank_page(page_size=output_size)
+        empty_pg.add_overlay(page, pikepdf.Rectangle(0, yoffset, x, y+yoffset))
+    del pdf.pages[0:i+1]
+    return pdf
+
+
 if __name__ == "__main__":
-    print("main")
     main()
