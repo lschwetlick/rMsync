@@ -484,7 +484,6 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
     pdfsize = input1.getPage(0).mediaBox
     pdfx = int(pdfsize[2])
     pdfy = int(pdfsize[3])
-
     if verbose:
         print(f"the pdf has size {pdfx}x{pdfy}")
 
@@ -509,32 +508,8 @@ def convertAnnotatedPDF(fname, refNrPath, origPDF, verbose=False):
     else:
         resizedPDF = origPDF
 
-    if ratio_pdf < ratio_rm:
-        keep_side = "x"
-        change_side = "y"
-    else:
-        keep_side = "y"
-        change_side = "x"
-
-    size = {"x" : pdfx, "y" : pdfy}
-
-    keep_side_is = size[keep_side]
-    change_side_is = size[change_side]
-
-    change_side_should = keep_side_is * ratio_rm if keep_side_is < change_side_is else keep_side_is / ratio_rm
-
-    yoffset = change_side_should - change_side_is if change_side == "y" else 0
-    #print(size, ratio_rm, ratio_pdf, keep_side, change_side, keep_side_is, change_side_is, change_side_should, yoffset)
-
-    output_size = [keep_side_is, change_side_should] if change_side == "y" else [change_side_should, keep_side_is]
-    rszCmd = "gs -o tempDir/resized_org.pdf -sDEVICE=pdfwrite -g"+str(int(output_size[0]))+"0x"+str(int(output_size[1]))+"0 -c '<</PageOffset [0 " + str(int(yoffset)) + "]>> setpagedevice' -f " + resizedPDF
-    #print(rszCmd)
-    os.system(rszCmd)
-    if landscape:
-        os.system("pdftk tempDir/resized_org.pdf cat 1-endnorth output tempdir/resized_org2.pdf")
-        resizedPDF = "tempDir/resized_org2.pdf"
-    else:
-        resizedPDF = "tempDir/resized_org.pdf"
+    if ratio_pdf != ratio_rm:
+        warnings.warn("The PDF you are annotating has an unexpected size. Annotations may be misaligned.")
 
     # find what the page hashes are
     content = json.loads(open(refNrPath + ".content").read())
