@@ -567,11 +567,10 @@ def get_target_dimensions(pdfx, pdfy):
         change_side = "x"
     size = {"x" : pdfx, "y" : pdfy}
 
-    keep_side_is = size[keep_side]
-    change_side_is = size[change_side]
-
+    keep_side_is = float(size[keep_side])
+    change_side_is = float(size[change_side])
     # <= because on squares, it shouldnt rotate!
-    change_side_should = keep_side_is * ratio_rm if keep_side_is <= change_side_is else keep_side_is / ratio_rm
+    change_side_should = (keep_side_is * ratio_rm) if (keep_side_is <= change_side_is) else (keep_side_is / ratio_rm)
 
     yoffset = change_side_should - change_side_is if change_side == "y" else 0
 
@@ -586,13 +585,13 @@ def resize_pages(pdfpath, landscape, verbose=False):
     pdf = pikepdf.Pdf.open(pdfpath)
     for i in range(len(pdf.pages)):
         page = pdf.pages[i]
-        x = page.trimbox[2]
-        y = page.trimbox[3]
+        x = float(page.trimbox[2])
+        y = float(page.trimbox[3])
         if landscape:
             print("land")
             page.Rotate = 90
-            x = page.trimbox[3]
-            y = page.trimbox[2]
+            x = float(page.trimbox[3])
+            y = float(page.trimbox[2])
 
         if verbose:
             print(f"transforming page {i} to size {x,y}")
