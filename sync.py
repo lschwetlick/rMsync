@@ -118,7 +118,7 @@ def backupRM(purge=False, verbose=False):
     """
     print("Backing up your remarkable files")
     if purge:
-        shutil.rmtree("/Users/lisa/Documents/remarkableBackup/" + remContent)
+        shutil.rmtree(remarkableDirectory + remContent)
         print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP,
                              ":", remarkableDirectory, " ",
