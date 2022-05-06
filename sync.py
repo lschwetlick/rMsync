@@ -100,6 +100,9 @@ def main():
     if args.upload:
         print("upload")
         uploadToRM_curl(args.dry_upload, verbose=args.verbose)
+    if not args.single and not args.conv_one and not args.backup and not args.convert and not args.upload:
+        print('Need to give at least one action')
+        sys.exit(1)
     print("Done!")
 
 ### BACK UP ###
@@ -115,7 +118,7 @@ def backupRM(purge=False, verbose=False):
     """
     print("Backing up your remarkable files")
     if purge:
-        shutil.rmtree("/Users/lisa/Documents/remarkableBackup/" + remContent)
+        shutil.rmtree(remarkableDirectory + remContent)
         print("deleted old files")
     backupCommand = "".join(["scp -r ", remarkableUsername, "@", remarkableIP,
                              ":", remarkableDirectory, " ",
